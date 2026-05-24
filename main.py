@@ -13,19 +13,34 @@ def get_page_content(url):
         return None
 
 
+
 def parse_content(html_content):
+    #values can be missing, so we need to handle that with try-except or conditional checks
     soup = BeautifulSoup(html_content, 'html.parser')
     product_title = soup.find('h1', class_='a-size-large a-spacing-none').get_text()
-    product_price_whole = soup.find('span', class_='a-price-whole').get_text()
+    product_price = soup.find('span', class_='a-price-whole').get_text()
     product_price_fraction = soup.find('span', class_='a-price-fraction').get_text()
+    old_price = soup.select_one("span.a-offscreen").get_text() #NOT ALWAYS PRESENT
+    discount = soup.select_one("span.savingsPercentage").get_text() #NOT ALWAYS PRESENT
+    stock = soup.select_one("span.primary-availability-message").get_text()
+    currency = soup.find('span', class_='a-price-symbol').get_text()
     reviews = soup.find(id='acrCustomerReviewText').get_text()[1:-1]
-
+    brand = soup.select_one("span.a-size-base.po-break-word").get_text()
+    rating = soup.select_one('span[data-hook="rating-out-of-text"]').get_text()
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
     return {
         "title": product_title,
+        "price": product_price,
+        "price_fraction": product_price_fraction,
+        "old_price": old_price,
+        "discount": discount,
+        "currency": currency,
         "reviews": reviews,
-        "timestamp": timestamp
+        "rating": rating,
+        "timestamp": timestamp,
+        "brand": brand,
+        "stock": stock
     }
 
 def save_to_db(connection, data):
@@ -49,17 +64,16 @@ def setup_database(connection):
     connection.commit()
 
 if __name__ == "__main__":
-    url = "https://www.amazon.fr/Google-Pixel-9a-Smartphone-Volcanique/dp/B0DSWJDNY4/ref=sr_1_5?__mk_fr_FR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=3J5BV860O33QN&dib=eyJ2IjoiMSJ9.4H2mSG4tvEhB5PCCCN04OZfL7xpLawv9ofdvKpuxwUi2R5YykmV8-ue-GQCgOHCGaScwR5XcOGIrx5jcIjJsWg6wlxrhGzhvc8bdzoYQxbYx6OhdnBNocl-TT0Icg2fJMiCp5iiOSaVCIrsDidVYoYsUhcB7_j_Fbfb9l0TCxwER-kv_6sE8eNrbPRYuaUfoHi66rwfJvduCeP9vvK9_hmYt9ABQRLLxDHViSCiMHdCHYTP-rkSIXZ6NuS8shPf8Dg-RKBz_JbJGacArQeV2UwQ98e0B3xHIjrwlDggTzrc.gbsbWEb5YvxLnbvJ2TuXkTrrHk8oi66N27700KrLs6I&dib_tag=se&keywords=Google%2BPixel%2B9a&qid=1779098522&sprefix=google%2Bpixel%2B9a%2Caps%2C137&sr=8-5&th=1"
+    url = "https://www.amazon.fr/JBL-Bluetooth-dautonomie-r%C3%A9sistante-Multi-Enceintes/dp/B0DXKNBQS6/ref=sr_1_2?__mk_fr_FR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=3IT0AW9WBQKBK&dib=eyJ2IjoiMSJ9.3_kM8PY9WMmk3HouK4opztGFACNNcodOlFosywUnqsJ8fI7FXENgiqYDbanZK_PofUysgQ7L3X6FobCcCPxchxwgC7OpEdzZokJa2INOeyFT57BvHWmWQD0g8HWyQGIzs7ZypkGIJNwgAdAVLwuskSE4KlFJd0Qy-htHBZOtz2q8asY5BOocYS9sLCvMIwyTSJzDiSobcOtoFGR0CbgcJ1mx5R52ZQbBFgTyN6JCOWsakO2P1tYo7EbfZ_FhTIkGvLkf_8kOqLo82VDKooVN05beuRWPAqmSEGPPSafeZ3Y.l7e3isGLWX9iK_4UqTJo2NOFxGM3wkvKPGA908GUYvY&dib_tag=se&keywords=JBL%2BCharge%2B6&qid=1779096571&sprefix=jbl%2Bcharge%2B%2Caps%2C149&sr=8-2&ufe=app_do%3Aamzn1.fos.9ad51ef1-4f85-497e-abf8-79138a00c9e5&th=1"
     df = pd.DataFrame()
-    conn = create_connection()
-    setup_database(conn)
+    #conn = create_connection()
+    #setup_database(conn)
 
     while True:
         html_content = get_page_content(url)
         if html_content:
             product_info = parse_content(html_content)
-            save_to_db(conn, product_info)
-            print("Data saved to database:", product_info)
+            print(product_info)
         else:
             print("Failed to retrieve or parse the page content.")
         time.sleep(10)
