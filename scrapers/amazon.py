@@ -7,16 +7,16 @@ import time
 class AmazonScraper(BaseScraper):
     def fetch(self, url: str) -> dict:
         soup = self.get_soup(url)
-        product_title = soup.find('h1', class_='a-size-large a-spacing-none').get_text()
-        product_price = soup.find('span', class_='a-price-whole').get_text()
-        product_price_fraction = soup.find('span', class_='a-price-fraction').get_text()
-        old_price = soup.select_one("span.a-offscreen").get_text() #NOT ALWAYS PRESENT
-        discount = soup.select_one("span.savingsPercentage").get_text() #NOT ALWAYS PRESENT
-        stock = soup.select_one("span.primary-availability-message").get_text()
-        currency = soup.find('span', class_='a-price-symbol').get_text()
-        reviews = soup.find(id='acrCustomerReviewText').get_text()[1:-1]
-        brand = soup.select_one("span.a-size-base.po-break-word").get_text()
-        rating = soup.select_one('span[data-hook="rating-out-of-text"]').get_text()
+        product_title = self.safe_get_text(soup.find('h1', class_='a-size-large a-spacing-none'))
+        product_price = self.safe_get_text(soup.find('span', class_='a-price-whole'))
+        product_price_fraction = self.safe_get_text(soup.find('span', class_='a-price-fraction'))
+        old_price = self.safe_get_text(soup.select_one("span.a-offscreen"))  # NOT ALWAYS PRESENT
+        discount = self.safe_get_text(soup.select_one("span.savingsPercentage"))  # NOT ALWAYS PRESENT
+        stock = self.safe_get_text(soup.select_one("span.primary-availability-message"))
+        currency = self.safe_get_text(soup.find('span', class_='a-price-symbol'))
+        reviews = self.safe_get_text(soup.find(id='acrCustomerReviewText'), default="No reviews")
+        brand = self.safe_get_text(soup.select_one("span.a-size-base.po-break-word"))
+        rating = self.safe_get_text(soup.select_one('span[data-hook="rating-out-of-text"]'))
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
         return {

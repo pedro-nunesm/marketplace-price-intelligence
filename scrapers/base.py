@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,17 @@ class BaseScraper(ABC):
             logger.exception(f"Unexpected error for {url}: {e}")
 
         return None
+
+    def safe_get_text(self, element, default=None):
+        if element:
+            return element.get_text()
+        else:
+            return default
+        
+    #CREATE JSON
+    def save_to_json(self, data: List[Dict], filename: str):
+        json_content = json.dumps(data, ensure_ascii=False, indent=4)
+        return json_content
 
 
     @abstractmethod
