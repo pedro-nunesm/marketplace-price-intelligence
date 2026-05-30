@@ -2,9 +2,11 @@ import os
 
 from scrapers.amazon import AmazonScraper
 from scrapers.fnac import FnacScraper
+from scrapers.mediamarkt import MediaMarktScraper
 from scrapers.base import BaseScraper
 from pipeline.storage import upload_to_s3
 from dotenv import load_dotenv
+import requests
 
 load_dotenv() 
 
@@ -16,12 +18,18 @@ scraper_amazon = AmazonScraper(urls=["https://www.amazon.fr/JBL-Bluetooth-dauton
 scraper_fnac = FnacScraper(urls=["https://www.fnac.com/Enceinte-sans-fil-JBL-Charge-6-Bluetooth-Noir/a21336209/w-4",
                                  "https://www.fnac.com/Ecran-PC-gaming-Samsung-Odyssey-G80SD-32-4K-UHD-Argent/a20611346/w-4",
                                  "https://www.fnac.com/Apple-iPhone-16-6-1-5G-128-Go-Double-SIM-Noir/a19813594/w-4"])
-produtos_fnac = scraper_fnac.run()
+
+scraper_mediamarkt = MediaMarktScraper(urls=["https://www.mediamarkt.be/fr/product/_garmin-forerunner-265-wifi-noirgris-montre-connectee-2222326.html",
+                                            "https://mediamarkt.lu/products/apple-airpods-pro-3-blanc"])
+produtos_mediamarkt = scraper_mediamarkt.run()
 
 #teste = scraper_fnac.get_soup("https://www.fnac.com/Enceinte-sans-fil-JBL-Charge-6-Bluetooth-Noir/a21336209/w-4")
-json_fnac = scraper_fnac.save_to_json(produtos_fnac, "products_fnac.json")
-upload_to_s3(json_fnac, "price-intelligence-storage", "products_fnac.json")
-#print(produtos_fnac)
+json_mediamarkt = scraper_mediamarkt.save_to_json(produtos_mediamarkt, "products_mediamarkt.json")
+upload_to_s3(json_mediamarkt, "price-intelligence-storage", "products_mediamarkt.json")
+#print(produtos_mediamarkt)
 
+teste = "https://mediamarkt.lu/products/jbl-charge-6-noir"
+reponse = requests.get(teste)
+print(reponse.status_code)
 
 
