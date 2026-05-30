@@ -8,6 +8,10 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import json
+import os 
+from dotenv import load_dotenv
+
+load_dotenv() 
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +29,10 @@ class BaseScraper(ABC):
     def __init__(self, urls: List[str]):
         self.urls = urls
         self.session = self._create_session()
+        self.scrap_key = os.getenv("SCRAPE_TOKEN")
+        self.render = "true"
+        self.geo_code = "fr"
+        self.super_mode = "true"
 
 
     #SESSIONS
