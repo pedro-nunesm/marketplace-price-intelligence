@@ -7,6 +7,8 @@ from scrapers.base import BaseScraper
 from pipeline.storage import upload_to_s3
 from dotenv import load_dotenv
 import requests
+import logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 load_dotenv() 
 
@@ -19,17 +21,24 @@ scraper_fnac = FnacScraper(urls=["https://www.fnac.com/Enceinte-sans-fil-JBL-Cha
                                  "https://www.fnac.com/Ecran-PC-gaming-Samsung-Odyssey-G80SD-32-4K-UHD-Argent/a20611346/w-4",
                                  "https://www.fnac.com/Apple-iPhone-16-6-1-5G-128-Go-Double-SIM-Noir/a19813594/w-4"])
 
-scraper_mediamarkt = MediaMarktScraper(urls=["https://www.mediamarkt.be/fr/product/_garmin-forerunner-265-wifi-noirgris-montre-connectee-2222326.html",
-                                            "https://mediamarkt.lu/products/apple-airpods-pro-3-blanc"])
-produtos_mediamarkt = scraper_mediamarkt.run()
 
-#teste = scraper_fnac.get_soup("https://www.fnac.com/Enceinte-sans-fil-JBL-Charge-6-Bluetooth-Noir/a21336209/w-4")
-json_mediamarkt = scraper_mediamarkt.save_to_json(produtos_mediamarkt, "products_mediamarkt.json")
-upload_to_s3(json_mediamarkt, "price-intelligence-storage", "products_mediamarkt.json")
-#print(produtos_mediamarkt)
+scraper_mediamarkt = MediaMarktScraper(urls=["https://mediamarkt.lu/products/jbl-charge-6-noir",
+                                             "https://mediamarkt.lu/products/samsung-monitor-odyssey-oled-g8-32-pouces-uhd-4k-oled-organic-light-emitting-diode",
+                                             "https://mediamarkt.lu/products/apple-airpods-pro-3-blanc",
+                                             "https://mediamarkt.lu/products/google-pixel-9a-5g-256-gb-obsidian"
+                                             ])
 
-teste = "https://mediamarkt.lu/products/jbl-charge-6-noir"
-reponse = requests.get(teste)
-print(reponse.status_code)
+#produtos_mediamarkt = scraper_mediamarkt.run()
+#produtos_mediamarkt_json = scraper_mediamarkt.save_to_json(produtos_mediamarkt, "products_mediamarkt_2.json")
+#print(produtos_mediamarkt_json)
+
+produtos_fnac = scraper_fnac.run()
+produtos_fnac_json = scraper_fnac.save_to_json(produtos_fnac, "products_fnac.json")
+print(produtos_fnac_json)
+
+#upload_to_s3(produtos_mediamarkt_json, "price-intelligence-storage", "products_mediamarkt_2.json")
+#teste = "https://mediamarkt.lu/products/jbl-charge-6-noir"
+#reponse = requests.get(teste)
+#print(reponse.status_code)
 
 

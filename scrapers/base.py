@@ -23,7 +23,7 @@ class BaseScraper(ABC):
             "Chrome/124.0.0.0 Safari/537.36"
         )
         }
-    REQUEST_TIMEOUT = 15
+    REQUEST_TIMEOUT = 60
     RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 
     def __init__(self, urls: List[str]):

@@ -13,22 +13,23 @@ logger = logging.getLogger(__name__)
 
 class FnacScraper(BaseScraper):
     def get_soup(self, url:str) -> Optional[BeautifulSoup]:
-        scrap_key = self.scrap_key
         target_url = urllib.parse.quote_plus(url)
-        render = self.render
-        geo_code =self.geo_code
-        super_mode = self.super_mode
-        new_url = url = f"https://api.scrape.do/?token={scrap_key}&url={target_url}&geoCode={geo_code}&super={super_mode}"
+        
+        # URL sem o render=true, voltando ao comportamento original que funcionava para a Fnac
+        new_url = f"https://api.scrape.do/?token={self.scrap_key}&url={target_url}&geoCode={self.geo_code}&super={self.super_mode}"
+        
+        print(f"\n---> [Fnac] Iniciando requisição para: {url}")
         
         try:
-            reponse = requests.request("GET", new_url)
+            reponse = self.session.get(new_url, timeout=self.REQUEST_TIMEOUT)
+            print(f"---> [Fnac] Resposta recebida! Status Code: {reponse.status_code}")
+            reponse.raise_for_status()
             return BeautifulSoup(reponse.text, 'html.parser')
         
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request error for {url}: {e}")
-
+            print(f"!!! ERRO DE REQUISIÇÃO [Fnac]: {e}")
         except Exception as e:
-            logger.exception(f"Unexpected error for {url}: {e}")
+            print(f"!!! ERRO INESPERADO [Fnac]: {e}")
 
         return None
 
