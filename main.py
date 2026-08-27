@@ -56,5 +56,5 @@ scrapers = {
 }
 
 for scraper_name, scraper_instance in scrapers.items():
-    date_folder = datetime.now().strftime("%Y-%m-%d")
+    date_folder = f"data/{datetime.now().strftime('%Y-%m-%d')}"
     process_scrapper(scraper_name, scraper_instance, date_folder)
