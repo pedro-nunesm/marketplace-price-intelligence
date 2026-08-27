@@ -1,81 +1,60 @@
+import os
+import json
+import logging
+from datetime import datetime
+from dotenv import load_dotenv
+
+from scrapers.amazon import AmazonScraper
+from scrapers.fnac import FnacScraper
+from scrapers.mediamarkt import MediaMarktScraper
+from pipeline.storage import upload_to_s3
+
 import requests
-from bs4 import BeautifulSoup
-import sqlite3
-import time
-import pandas as pd
+import logging
 
-def get_page_content(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.text
-    else:
-        print(f"Failed to retrieve the page. Status code: {response.status_code}")
-        return None
+load_dotenv() 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__) 
+
+BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
 
+def process_scrapper(scraper_name: str, scraper_instance, date_folder: str):
+    #Execute the scraper and load the data to S3
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-def parse_content(html_content):
-    #values can be missing, so we need to handle that with try-except or conditional checks
-    soup = BeautifulSoup(html_content, 'html.parser')
-    product_title = soup.find('h1', class_='a-size-large a-spacing-none').get_text()
-    product_price = soup.find('span', class_='a-price-whole').get_text()
-    product_price_fraction = soup.find('span', class_='a-price-fraction').get_text()
-    old_price = soup.select_one("span.a-offscreen").get_text() #NOT ALWAYS PRESENT
-    discount = soup.select_one("span.savingsPercentage").get_text() #NOT ALWAYS PRESENT
-    stock = soup.select_one("span.primary-availability-message").get_text()
-    currency = soup.find('span', class_='a-price-symbol').get_text()
-    reviews = soup.find(id='acrCustomerReviewText').get_text()[1:-1]
-    brand = soup.select_one("span.a-size-base.po-break-word").get_text()
-    rating = soup.select_one('span[data-hook="rating-out-of-text"]').get_text()
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        logger.info(f"Starting {scraper_name} scraper...")
+        data = scraper_instance.run()
 
-    return {
-        "title": product_title,
-        "price": product_price,
-        "price_fraction": product_price_fraction,
-        "old_price": old_price,
-        "discount": discount,
-        "currency": currency,
-        "reviews": reviews,
-        "rating": rating,
-        "timestamp": timestamp,
-        "brand": brand,
-        "stock": stock
-    }
+        if not data:
+            raise ValueError(f"No data returned from {scraper_name} scraper.")
 
-def save_to_db(connection, data):
-    new_row = pd.DataFrame([data])
-    new_row.to_sql('products', connection, if_exists='append', index=False)
+        json_content = scraper_instance.save_to_json(data, f"temp_{scraper_name}.json")
+        s3_key = f"{date_folder}/{scraper_name}_{current_time}.json"
+        upload_to_s3(json_content, BUCKET_NAME, s3_key)
+
+        logger.info(f"{scraper_name} scraper completed successfully. Data uploaded to S3 at {s3_key}.")
+
+    except Exception as e:
+        logger.error(f"Error in {scraper_name} scraper: {e}")
+
+        #Save the error to S3
+        error_data = {"error": str(e), "scraper": scraper_name, "timestamp": current_time}
+        error_content = json.dumps(error_data, ensure_ascii=False, indent=4)
+        error_key = f"{date_folder}/ERROR_{scraper_name}_{current_time}.json"
+
+        upload_to_s3(error_content, BUCKET_NAME, error_key)
+        logger.info(f"Error details uploaded to S3 at {error_key}.")
 
 
-def create_connection(db_name="products.db"):
-    connection = sqlite3.connect(db_name)
-    return connection
+scrapers = {
+    "Amazon": AmazonScraper(urls=["https://www.amazon.fr/Google-Pixel-9a-Smartphone-Volcanique/dp/B0DSWJDNY4/ref=sr_1_5?__mk_fr_FR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=3J5BV860O33QN&dib=eyJ2IjoiMSJ9.4H2mSG4tvEhB5PCCCN04OZfL7xpLawv9ofdvKpuxwUi2R5YykmV8-ue-GQCgOHCGaScwR5XcOGIrx5jcIjJsWg6wlxrhGzhvc8bdzoYQxbYx6OhdnBNocl-TT0Icg2fJMiCp5iiOSaVCIrsDidVYoYsUhcB7_j_Fbfb9l0TCxwER-kv_6sE8eNrbPRYuaUfoHi66rwfJvduCeP9vvK9_hmYt9ABQRLLxDHViSCiMHdCHYTP-rkSIXZ6NuS8shPf8Dg-RKBz_JbJGacArQeV2UwQ98e0B3xHIjrwlDggTzrc.gbsbWEb5YvxLnbvJ2TuXkTrrHk8oi66N27700KrLs6I&dib_tag=se&keywords=Google%2BPixel%2B9a&qid=1779098522&sprefix=google%2Bpixel%2B9a%2Caps%2C137&sr=8-5&th=1",
+                                  "https://www.amazon.fr/NINTENDO-Switch-Console-Portables-Tactile/dp/B098TVDYZ3/ref=sr_1_2?__mk_fr_FR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=1PKQWYKU6I1UO&dib=eyJ2IjoiMSJ9.WYGeypF_CCvkyvDSiZZOiRVZ0N0TLmgkEmv_7xkOe9hIVpDSE6Q7KfaqpFQ_QGYnjCX99ZNMNClDfZZQjKQhkoMhAIEsFLLBKGQSdvnCYdcrud8j2QPD3YFCq0vzC3JDRTJbBycapzIoSbt7j3Cwnt4_YN1Z6fw0GhTTEVUAjY91ZMfMPG4GBQX_sk675Y5rGCUwcmRfZddHMMfX5gvvNY-ggYS01zEcGAuw__CfLQ7mbd9gKvXrqqKAR64VOho16XNxsmxMiZ0GL-eXPGjHF79YV9M6TSBkpe3CeJQeEkI.Q9usFQ5XiCEI3FGtOmmVbD68IY_Bc7nIREj7rTk8Dks&dib_tag=se&keywords=Nintendo+Switch+OLED&qid=1779098813&sprefix=google+pixel+9a%2Caps%2C248&sr=8-2"]),
+    "Fnac": FnacScraper(urls=["https://www.fnac.com/Ecran-PC-gaming-Samsung-Odyssey-G80SD-32-4K-UHD-Argent/a20611346/w-4",
+    "https://www.fnac.com/Apple-AirPods-Pro-3-Blanc/a18241004/w-4"])
+}
 
-def setup_database(connection):
-    cursor = connection.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS products (
-            title TEXT,
-            reviews INTEGER,
-            timestamp TEXT
-        )
-    ''')
-    connection.commit()
-
-if __name__ == "__main__":
-    url = "https://www.amazon.fr/JBL-Bluetooth-dautonomie-r%C3%A9sistante-Multi-Enceintes/dp/B0DXKNBQS6/ref=sr_1_2?__mk_fr_FR=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=3IT0AW9WBQKBK&dib=eyJ2IjoiMSJ9.3_kM8PY9WMmk3HouK4opztGFACNNcodOlFosywUnqsJ8fI7FXENgiqYDbanZK_PofUysgQ7L3X6FobCcCPxchxwgC7OpEdzZokJa2INOeyFT57BvHWmWQD0g8HWyQGIzs7ZypkGIJNwgAdAVLwuskSE4KlFJd0Qy-htHBZOtz2q8asY5BOocYS9sLCvMIwyTSJzDiSobcOtoFGR0CbgcJ1mx5R52ZQbBFgTyN6JCOWsakO2P1tYo7EbfZ_FhTIkGvLkf_8kOqLo82VDKooVN05beuRWPAqmSEGPPSafeZ3Y.l7e3isGLWX9iK_4UqTJo2NOFxGM3wkvKPGA908GUYvY&dib_tag=se&keywords=JBL%2BCharge%2B6&qid=1779096571&sprefix=jbl%2Bcharge%2B%2Caps%2C149&sr=8-2&ufe=app_do%3Aamzn1.fos.9ad51ef1-4f85-497e-abf8-79138a00c9e5&th=1"
-    df = pd.DataFrame()
-    #conn = create_connection()
-    #setup_database(conn)
-
-    while True:
-        html_content = get_page_content(url)
-        if html_content:
-            product_info = parse_content(html_content)
-            print(product_info)
-        else:
-            print("Failed to retrieve or parse the page content.")
-        time.sleep(10)
-
-
+for scraper_name, scraper_instance in scrapers.items():
+    date_folder = datetime.now().strftime("%Y-%m-%d")
+    process_scrapper(scraper_name, scraper_instance, date_folder)

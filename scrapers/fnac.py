@@ -18,18 +18,19 @@ class FnacScraper(BaseScraper):
         # URL sem o render=true, voltando ao comportamento original que funcionava para a Fnac
         new_url = f"https://api.scrape.do/?token={self.scrap_key}&url={target_url}&geoCode={self.geo_code}&super={self.super_mode}"
         
-        print(f"\n---> [Fnac] Iniciando requisição para: {url}")
+        logger.info(f"[Fnac] Starting request for: {url}")
         
         try:
             reponse = self.session.get(new_url, timeout=self.REQUEST_TIMEOUT)
-            print(f"---> [Fnac] Resposta recebida! Status Code: {reponse.status_code}")
+            logger.info(f"FNAC answer received for URL: {url} Status Code: {reponse.status_code}")
+
             reponse.raise_for_status()
             return BeautifulSoup(reponse.text, 'html.parser')
         
         except requests.exceptions.RequestException as e:
-            print(f"!!! ERRO DE REQUISIÇÃO [Fnac]: {e}")
+            logger.error(f"Request error [Fnac]: {e}")
         except Exception as e:
-            print(f"!!! ERRO INESPERADO [Fnac]: {e}")
+            logger.error(f"!!! Unexpected error [Fnac]: {e}")
 
         return None
 
